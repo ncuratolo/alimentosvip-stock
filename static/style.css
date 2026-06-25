@@ -29,7 +29,7 @@ header {
 }
 
 .logo {
-  height: 56px;
+  height: 110px;
   margin-bottom: 4px;
 }
 
@@ -147,8 +147,8 @@ tr:hover td { background: #fafafa; }
   border-radius: 6px;
 }
 
-.btn-produccion { background: #2f8a4e; }
-.btn-venta { background: var(--warn); color: #4a3000; }
+.btn-produccion { background: var(--gray); color: #fff; }
+.btn-venta { background: var(--gray); color: #fff; }
 .btn-eliminar {
   background: transparent;
   color: var(--red);
