@@ -1,12 +1,15 @@
 :root {
-  --bg: #0f1115;
-  --card: #181b22;
-  --border: #2a2e38;
-  --text: #e8e9ec;
-  --muted: #9aa0ab;
-  --accent: #2ecc71;
-  --danger: #e74c3c;
-  --warn: #f1c40f;
+  --bg: #f4f4f5;
+  --card: #ffffff;
+  --border: #e3e4e6;
+  --text: #3a3a3c;
+  --muted: #8a8b8d;
+  --gray: #6d6e71;
+  --red: #e2231c;
+  --red-dark: #c01b16;
+  --red-light: #fdeceb;
+  --warn: #f0ad4e;
+  --warn-light: #fdf3e3;
 }
 
 * { box-sizing: border-box; }
@@ -19,12 +22,26 @@ body {
 }
 
 header {
-  padding: 24px 32px 12px;
+  padding: 24px 32px 16px;
   border-bottom: 1px solid var(--border);
+  background: var(--card);
+  text-align: center;
 }
 
-header h1 { margin: 0 0 4px; font-size: 1.6rem; }
-.subtitle { margin: 0; color: var(--muted); }
+.logo {
+  height: 56px;
+  margin-bottom: 4px;
+}
+
+header h1 {
+  margin: 4px 0 0;
+  font-size: 1.3rem;
+  color: var(--gray);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.subtitle { margin: 2px 0 0; color: var(--muted); font-size: 0.9rem; }
 
 main {
   max-width: 960px;
@@ -40,9 +57,16 @@ main {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-.card h2 { margin-top: 0; font-size: 1.1rem; }
+.card h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+  color: var(--gray);
+  border-left: 4px solid var(--red);
+  padding-left: 10px;
+}
 
 .row {
   display: flex;
@@ -55,22 +79,23 @@ input, select, button {
   padding: 9px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: #0f1115;
+  background: #fff;
   color: var(--text);
 }
 
 input::placeholder { color: var(--muted); }
 
 button {
-  background: var(--accent);
-  color: #06160c;
+  background: var(--red);
+  color: #fff;
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, transform 0.05s;
 }
 
-button:hover { opacity: 0.85; }
+button:hover { opacity: 0.9; }
+button:active { transform: scale(0.98); }
 
 .buscador { width: 100%; margin-bottom: 12px; }
 
@@ -82,21 +107,29 @@ table {
 
 th, td {
   text-align: left;
-  padding: 8px 6px;
+  padding: 9px 6px;
   border-bottom: 1px solid var(--border);
 }
 
-th { color: var(--muted); font-weight: 500; }
+th {
+  color: var(--gray);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+tr:hover td { background: #fafafa; }
 
 .stock-badge {
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 6px;
-  background: #1f2a22;
-  color: var(--accent);
+  background: #e9f6ee;
+  color: #2f8a4e;
 }
 
-.stock-badge.bajo { background: #2a1f1f; color: var(--danger); }
+.stock-badge.bajo { background: var(--red-light); color: var(--red-dark); }
 
 .mov-controls {
   display: flex;
@@ -109,13 +142,19 @@ th { color: var(--muted); font-weight: 500; }
 }
 
 .btn-mini {
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-size: 0.85rem;
+  border-radius: 6px;
 }
 
-.btn-produccion { background: var(--accent); }
-.btn-venta { background: var(--warn); color: #271f00; }
-.btn-eliminar { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+.btn-produccion { background: #2f8a4e; }
+.btn-venta { background: var(--warn); color: #4a3000; }
+.btn-eliminar {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+.btn-eliminar:hover { background: var(--red-light); opacity: 1; }
 
 #toast {
   position: fixed;
@@ -130,16 +169,17 @@ th { color: var(--muted); font-weight: 500; }
 .toast-item {
   padding: 10px 16px;
   border-radius: 8px;
-  background: #1f2a22;
-  border: 1px solid var(--accent);
+  background: #e9f6ee;
+  border: 1px solid #2f8a4e;
   color: var(--text);
   font-size: 0.9rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   animation: fadeout 3s forwards;
 }
 
 .toast-item.error {
-  background: #2a1f1f;
-  border-color: var(--danger);
+  background: var(--red-light);
+  border-color: var(--red);
 }
 
 @keyframes fadeout {
@@ -147,6 +187,6 @@ th { color: var(--muted); font-weight: 500; }
   100% { opacity: 0; }
 }
 
-.tipo-produccion { color: var(--accent); }
-.tipo-venta { color: var(--warn); }
+.tipo-produccion { color: #2f8a4e; font-weight: 600; }
+.tipo-venta { color: #b9790a; font-weight: 600; }
 .tipo-ajuste { color: var(--muted); }

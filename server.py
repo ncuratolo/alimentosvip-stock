@@ -95,6 +95,9 @@ class Handler(BaseHTTPRequestHandler):
             ".html": "text/html; charset=utf-8",
             ".css": "text/css; charset=utf-8",
             ".js": "application/javascript; charset=utf-8",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".svg": "image/svg+xml",
         }
         ctype = content_types.get(file_path.suffix, "application/octet-stream")
         data = file_path.read_bytes()
