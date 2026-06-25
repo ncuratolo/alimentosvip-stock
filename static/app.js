@@ -73,7 +73,7 @@ function renderProductos() {
         <td>${p.unidad}</td>
         <td>
           <div class="mov-controls">
-            <input type="number" min="0" step="any" value="1" class="cantidad-input">
+            <input type="number" min="0" max="999" step="any" value="1" class="cantidad-input">
             <button class="btn-mini btn-produccion" data-tipo="produccion">+ Producción</button>
             <button class="btn-mini btn-venta" data-tipo="venta">− Venta</button>
           </div>
