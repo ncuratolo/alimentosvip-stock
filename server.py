@@ -44,9 +44,12 @@ def init_db():
             cantidad DOUBLE PRECISION NOT NULL,
             nota TEXT,
             fecha_produccion TEXT,
-            fecha TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'localtime')
+            fecha TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')
         );
         """
+    )
+    cur.execute(
+        "ALTER TABLE movimientos ALTER COLUMN fecha SET DEFAULT (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')"
     )
     conn.commit()
     cur.close()
