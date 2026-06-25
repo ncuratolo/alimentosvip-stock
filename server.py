@@ -3,6 +3,7 @@ import json
 import threading
 import base64
 import hmac
+import traceback
 import psycopg2
 import psycopg2.extras
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -120,38 +121,50 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     def do_GET(self):
-        if not self._check_auth():
-            return
-        parsed = urlparse(self.path)
-        if parsed.path == "/api/productos":
-            return self.handle_get_productos()
-        if parsed.path == "/api/movimientos":
-            return self.handle_get_movimientos(parse_qs(parsed.query))
-        return self._serve_static(parsed.path)
+        try:
+            if not self._check_auth():
+                return
+            parsed = urlparse(self.path)
+            if parsed.path == "/api/productos":
+                return self.handle_get_productos()
+            if parsed.path == "/api/movimientos":
+                return self.handle_get_movimientos(parse_qs(parsed.query))
+            return self._serve_static(parsed.path)
+        except Exception as e:
+            traceback.print_exc()
+            return self._send_error_json(f"Error interno: {e}", 500)
 
     def do_POST(self):
-        if not self._check_auth():
-            return
-        parsed = urlparse(self.path)
         try:
-            body = self._read_json_body()
-        except Exception:
-            return self._send_error_json("JSON invalido")
+            if not self._check_auth():
+                return
+            parsed = urlparse(self.path)
+            try:
+                body = self._read_json_body()
+            except Exception:
+                return self._send_error_json("JSON invalido")
 
-        if parsed.path == "/api/productos":
-            return self.handle_create_producto(body)
-        if parsed.path == "/api/movimientos":
-            return self.handle_create_movimiento(body)
-        return self._send_error_json("No encontrado", 404)
+            if parsed.path == "/api/productos":
+                return self.handle_create_producto(body)
+            if parsed.path == "/api/movimientos":
+                return self.handle_create_movimiento(body)
+            return self._send_error_json("No encontrado", 404)
+        except Exception as e:
+            traceback.print_exc()
+            return self._send_error_json(f"Error interno: {e}", 500)
 
     def do_DELETE(self):
-        if not self._check_auth():
-            return
-        parsed = urlparse(self.path)
-        parts = parsed.path.strip("/").split("/")
-        if len(parts) == 3 and parts[0] == "api" and parts[1] == "productos":
-            return self.handle_delete_producto(parts[2])
-        return self._send_error_json("No encontrado", 404)
+        try:
+            if not self._check_auth():
+                return
+            parsed = urlparse(self.path)
+            parts = parsed.path.strip("/").split("/")
+            if len(parts) == 3 and parts[0] == "api" and parts[1] == "productos":
+                return self.handle_delete_producto(parts[2])
+            return self._send_error_json("No encontrado", 404)
+        except Exception as e:
+            traceback.print_exc()
+            return self._send_error_json(f"Error interno: {e}", 500)
 
     # ---- handlers ----
 
