@@ -5,6 +5,15 @@ const toast = document.querySelector("#toast");
 
 let productosCache = [];
 
+document.querySelectorAll(".nav-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.target).classList.add("active");
+  });
+});
+
 function showToast(message, isError = false) {
   const div = document.createElement("div");
   div.className = "toast-item" + (isError ? " error" : "");

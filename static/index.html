@@ -12,50 +12,58 @@
   <h1>Planilla de Stock</h1>
 </header>
 
-<main>
-  <section class="card">
-    <h2>Nuevo producto</h2>
-    <form id="form-producto" class="row">
-      <input type="text" id="nombre" placeholder="Nombre del producto" required>
-      <input type="text" id="unidad" placeholder="Unidad (kg, unidades, cajas...)" value="unidades">
-      <input type="number" id="stock_inicial" placeholder="Stock inicial" value="0" step="any">
-      <button type="submit">Agregar producto</button>
-    </form>
-  </section>
+<div class="layout">
+  <nav class="sidenav">
+    <button class="nav-btn active" data-target="panel-nuevo">Nuevo producto</button>
+    <button class="nav-btn" data-target="panel-productos">Productos</button>
+    <button class="nav-btn" data-target="panel-movimientos">Últimos movimientos</button>
+  </nav>
 
-  <section class="card">
-    <h2>Productos</h2>
-    <input type="text" id="buscador" placeholder="Buscar producto..." class="buscador">
-    <table id="tabla-productos">
-      <thead>
-        <tr>
-          <th>Producto</th>
-          <th>Stock</th>
-          <th>Unidad</th>
-          <th>Movimiento</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </section>
+  <main>
+    <section class="card panel active" id="panel-nuevo">
+      <h2>Nuevo producto</h2>
+      <form id="form-producto" class="row">
+        <input type="text" id="nombre" placeholder="Nombre del producto" required>
+        <input type="text" id="unidad" placeholder="Unidad (kg, unidades, cajas...)" value="unidades">
+        <input type="number" id="stock_inicial" placeholder="Stock inicial" value="0" step="any">
+        <button type="submit">Agregar producto</button>
+      </form>
+    </section>
 
-  <section class="card">
-    <h2>Últimos movimientos</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Fecha</th>
-          <th>Producto</th>
-          <th>Tipo</th>
-          <th>Cantidad</th>
-          <th>Nota</th>
-        </tr>
-      </thead>
-      <tbody id="tabla-movimientos"></tbody>
-    </table>
-  </section>
-</main>
+    <section class="card panel" id="panel-productos">
+      <h2>Productos</h2>
+      <input type="text" id="buscador" placeholder="Buscar producto..." class="buscador">
+      <table id="tabla-productos">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Stock</th>
+            <th>Unidad</th>
+            <th>Movimiento</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="card panel" id="panel-movimientos">
+      <h2>Últimos movimientos</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Producto</th>
+            <th>Tipo</th>
+            <th>Cantidad</th>
+            <th>Nota</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-movimientos"></tbody>
+      </table>
+    </section>
+  </main>
+</div>
 
 <div id="toast"></div>
 
