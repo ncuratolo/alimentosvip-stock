@@ -59,21 +59,34 @@ async function cargarMovimientos() {
 }
 
 function renderProductos() {
+  const valoresActuales = {};
+  tbodyProductos.querySelectorAll("tr").forEach((fila) => {
+    const input = fila.querySelector(".cantidad-input");
+    if (input) valoresActuales[fila.dataset.id] = input.value;
+  });
+
   const filtro = buscador.value.trim().toLowerCase();
   const lista = productosCache.filter((p) =>
     p.nombre.toLowerCase().includes(filtro)
   );
 
+  const elementoActivo = document.activeElement;
+  const idFilaActiva = elementoActivo?.classList?.contains("cantidad-input")
+    ? elementoActivo.closest("tr")?.dataset.id
+    : null;
+  const posicionCursor = idFilaActiva ? elementoActivo.selectionStart : null;
+
   tbodyProductos.innerHTML = lista
     .map((p) => {
       const bajo = p.stock <= 5;
+      const valorCantidad = valoresActuales[p.id] ?? "1";
       return `<tr data-id="${p.id}">
         <td>${p.nombre}</td>
         <td><span class="stock-badge ${bajo ? "bajo" : ""}">${p.stock}</span></td>
         <td>${p.unidad}</td>
         <td>
           <div class="mov-controls">
-            <input type="number" min="0" max="999" step="any" value="1" class="cantidad-input">
+            <input type="number" min="0" max="999" step="any" value="${valorCantidad}" class="cantidad-input">
             <button class="btn-mini btn-produccion" data-tipo="produccion">+ Producción</button>
             <button class="btn-mini btn-venta" data-tipo="venta">− Venta</button>
           </div>
@@ -82,6 +95,16 @@ function renderProductos() {
       </tr>`;
     })
     .join("");
+
+  if (idFilaActiva) {
+    const nuevoInput = tbodyProductos.querySelector(
+      `tr[data-id="${idFilaActiva}"] .cantidad-input`
+    );
+    if (nuevoInput) {
+      nuevoInput.focus();
+      nuevoInput.setSelectionRange(posicionCursor, posicionCursor);
+    }
+  }
 }
 
 document.querySelector("#form-producto").addEventListener("submit", async (e) => {
