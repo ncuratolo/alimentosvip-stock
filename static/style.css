@@ -240,4 +240,34 @@ tr:hover td { background: #fafafa; }
 
 .tipo-produccion { color: #2f8a4e; font-weight: 600; }
 .tipo-venta { color: #b9790a; font-weight: 600; }
+
+.btn-partidas {
+  background: #fff;
+  color: var(--gray);
+  border: 1px solid var(--border);
+}
+
+.fila-partidas td {
+  background: #fafafa;
+  padding: 10px 16px;
+}
+
+.tabla-partidas {
+  font-size: 0.85rem;
+}
+
+.tabla-partidas th {
+  color: var(--muted);
+}
+
+.venc-badge {
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.venc-verde { background: #e9f6ee; color: #2f8a4e; }
+.venc-amarillo { background: var(--warn-light); color: #8a5a00; }
+.venc-rojo { background: var(--red-light); color: var(--red-dark); }
 .tipo-ajuste { color: var(--muted); }

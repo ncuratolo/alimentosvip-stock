@@ -4,6 +4,8 @@ const buscador = document.querySelector("#buscador");
 const toast = document.querySelector("#toast");
 
 let productosCache = [];
+const lotesCache = {};
+const expandido = new Set();
 
 document.querySelectorAll(".nav-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -34,7 +36,14 @@ async function api(path, options = {}) {
 
 async function cargarProductos() {
   productosCache = await api("/api/productos");
+  await Promise.all(
+    [...expandido].map((id) => cargarLotes(id))
+  );
   renderProductos();
+}
+
+async function cargarLotes(producto_id) {
+  lotesCache[producto_id] = await api(`/api/lotes?producto_id=${producto_id}`);
 }
 
 async function cargarMovimientos() {
@@ -58,9 +67,47 @@ async function cargarMovimientos() {
     .join("");
 }
 
+function badgeVencimiento(dias) {
+  if (dias < 0) return `<span class="venc-badge venc-rojo">VENCIDO</span>`;
+  if (dias <= 15) return `<span class="venc-badge venc-rojo">${dias} días</span>`;
+  if (dias <= 30) return `<span class="venc-badge venc-amarillo">${dias} días</span>`;
+  return `<span class="venc-badge venc-verde">${dias} días</span>`;
+}
+
+function renderPartidas(producto) {
+  const lotes = lotesCache[producto.id];
+  if (!lotes) {
+    return `<tr class="fila-partidas"><td colspan="5">Cargando partidas...</td></tr>`;
+  }
+  if (lotes.length === 0) {
+    return `<tr class="fila-partidas"><td colspan="5">No hay partidas con stock para este producto.</td></tr>`;
+  }
+  const filas = lotes
+    .map(
+      (l) => `<tr data-lote-id="${l.id}">
+        <td>${l.cantidad} ${producto.unidad}</td>
+        <td>${l.fecha_produccion}</td>
+        <td>${badgeVencimiento(l.dias_para_vencer)}</td>
+        <td>
+          <div class="mov-controls">
+            <input type="number" min="0" max="${l.cantidad}" step="any" value="1" class="cantidad-lote-input">
+            <button class="btn-mini btn-venta" data-lote-id="${l.id}" data-producto-id="${producto.id}">− Venta</button>
+          </div>
+        </td>
+      </tr>`
+    )
+    .join("");
+  return `<tr class="fila-partidas"><td colspan="5">
+    <table class="tabla-partidas">
+      <thead><tr><th>Cantidad</th><th>Fecha producción</th><th>Vence en</th><th>Vender de esta partida</th></tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+  </td></tr>`;
+}
+
 function renderProductos() {
   const valoresActuales = {};
-  tbodyProductos.querySelectorAll("tr").forEach((fila) => {
+  tbodyProductos.querySelectorAll("tr[data-id]").forEach((fila) => {
     const input = fila.querySelector(".cantidad-input");
     if (input) valoresActuales[fila.dataset.id] = input.value;
   });
@@ -80,7 +127,8 @@ function renderProductos() {
     .map((p) => {
       const bajo = p.stock <= 5;
       const valorCantidad = valoresActuales[p.id] ?? "1";
-      return `<tr data-id="${p.id}">
+      const abierta = expandido.has(String(p.id));
+      const filaPrincipal = `<tr data-id="${p.id}">
         <td>${p.nombre}</td>
         <td><span class="stock-badge ${bajo ? "bajo" : ""}">${p.stock}</span></td>
         <td>${p.unidad}</td>
@@ -88,11 +136,12 @@ function renderProductos() {
           <div class="mov-controls">
             <input type="number" min="0" max="999" step="any" value="${valorCantidad}" class="cantidad-input">
             <button class="btn-mini btn-produccion" data-tipo="produccion">+ Producción</button>
-            <button class="btn-mini btn-venta" data-tipo="venta">− Venta</button>
+            <button class="btn-mini btn-partidas" data-accion="partidas">${abierta ? "▾" : "▸"} Partidas</button>
           </div>
         </td>
         <td><button class="btn-mini btn-eliminar" data-accion="eliminar">Eliminar</button></td>
       </tr>`;
+      return filaPrincipal + (abierta ? renderPartidas(p) : "");
     })
     .join("");
 
@@ -129,7 +178,37 @@ document.querySelector("#form-producto").addEventListener("submit", async (e) =>
 });
 
 tbodyProductos.addEventListener("click", async (e) => {
-  const fila = e.target.closest("tr");
+  // Venta desde una partida especifica
+  if (e.target.dataset.loteId && e.target.classList.contains("btn-venta")) {
+    const lote_id = e.target.dataset.loteId;
+    const producto_id = e.target.dataset.productoId;
+    const filaLote = e.target.closest("tr");
+    const cantidadInput = filaLote.querySelector(".cantidad-lote-input");
+    const cantidad = parseFloat(cantidadInput.value);
+    if (!cantidad || cantidad <= 0) {
+      showToast("Ingresá una cantidad válida", true);
+      return;
+    }
+    const nota = prompt("Cliente o motivo de la baja:");
+    if (!nota || !nota.trim()) {
+      showToast("Tenés que indicar cliente o motivo", true);
+      return;
+    }
+    try {
+      await api("/api/movimientos", {
+        method: "POST",
+        body: JSON.stringify({ producto_id, tipo: "venta", cantidad, lote_id, nota: nota.trim() }),
+      });
+      showToast(`-${cantidad} vendidas de esa partida`);
+      await cargarLotes(producto_id);
+      await Promise.all([cargarProductos(), cargarMovimientos()]);
+    } catch (err) {
+      showToast(err.message, true);
+    }
+    return;
+  }
+
+  const fila = e.target.closest("tr[data-id]");
   if (!fila) return;
   const producto_id = fila.dataset.id;
 
@@ -141,8 +220,20 @@ tbodyProductos.addEventListener("click", async (e) => {
     return;
   }
 
+  if (e.target.dataset.accion === "partidas") {
+    if (expandido.has(producto_id)) {
+      expandido.delete(producto_id);
+      renderProductos();
+    } else {
+      expandido.add(producto_id);
+      await cargarLotes(producto_id);
+      renderProductos();
+    }
+    return;
+  }
+
   const tipo = e.target.dataset.tipo;
-  if (!tipo) return;
+  if (tipo !== "produccion") return;
 
   const cantidadInput = fila.querySelector(".cantidad-input");
   const cantidad = parseFloat(cantidadInput.value);
@@ -151,32 +242,17 @@ tbodyProductos.addEventListener("click", async (e) => {
     return;
   }
 
-  const payload = { producto_id, tipo, cantidad };
-
-  if (tipo === "produccion") {
-    const hoy = new Date().toISOString().slice(0, 10);
-    const fecha_produccion = prompt("Fecha de producción (AAAA-MM-DD):", hoy);
-    if (!fecha_produccion) return;
-    payload.fecha_produccion = fecha_produccion;
-  } else if (tipo === "venta") {
-    const nota = prompt("Cliente o motivo de la baja:");
-    if (!nota || !nota.trim()) {
-      showToast("Tenés que indicar cliente o motivo", true);
-      return;
-    }
-    payload.nota = nota.trim();
-  }
+  const hoy = new Date().toISOString().slice(0, 10);
+  const fecha_produccion = prompt("Fecha de producción (AAAA-MM-DD):", hoy);
+  if (!fecha_produccion) return;
 
   try {
     await api("/api/movimientos", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ producto_id, tipo: "produccion", cantidad, fecha_produccion }),
     });
-    showToast(
-      tipo === "produccion"
-        ? `+${cantidad} agregadas`
-        : `-${cantidad} vendidas`
-    );
+    showToast(`+${cantidad} agregadas (nueva partida)`);
+    if (expandido.has(producto_id)) await cargarLotes(producto_id);
     await Promise.all([cargarProductos(), cargarMovimientos()]);
   } catch (err) {
     showToast(err.message, true);

@@ -4,6 +4,7 @@ import threading
 import base64
 import hmac
 import traceback
+import datetime
 import psycopg2
 import psycopg2.extras
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -16,6 +17,8 @@ STATIC_DIR = BASE_DIR / "static"
 DATABASE_URL = os.environ["DATABASE_URL"]
 AUTH_USER = os.environ.get("AUTH_USER", "alimentosvip")
 AUTH_PASS = os.environ.get("AUTH_PASS", "AlimentosVip+")
+
+VIDA_UTIL_DIAS = 90
 
 db_lock = threading.Lock()
 
@@ -37,6 +40,14 @@ def init_db():
             stock DOUBLE PRECISION NOT NULL DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS lotes (
+            id SERIAL PRIMARY KEY,
+            producto_id INTEGER NOT NULL REFERENCES productos(id),
+            cantidad DOUBLE PRECISION NOT NULL,
+            fecha_produccion DATE NOT NULL,
+            fecha_creacion TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')
+        );
+
         CREATE TABLE IF NOT EXISTS movimientos (
             id SERIAL PRIMARY KEY,
             producto_id INTEGER NOT NULL REFERENCES productos(id),
@@ -50,6 +61,9 @@ def init_db():
     )
     cur.execute(
         "ALTER TABLE movimientos ALTER COLUMN fecha SET DEFAULT (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')"
+    )
+    cur.execute(
+        "ALTER TABLE movimientos ADD COLUMN IF NOT EXISTS lote_id INTEGER REFERENCES lotes(id)"
     )
     conn.commit()
     cur.close()
@@ -135,6 +149,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.handle_get_productos()
             if parsed.path == "/api/movimientos":
                 return self.handle_get_movimientos(parse_qs(parsed.query))
+            if parsed.path == "/api/lotes":
+                return self.handle_get_lotes(parse_qs(parsed.query))
             return self._serve_static(parsed.path)
         except Exception as e:
             traceback.print_exc()
@@ -217,11 +233,36 @@ class Handler(BaseHTTPRequestHandler):
             conn = get_conn()
             cur = conn.cursor()
             cur.execute("DELETE FROM movimientos WHERE producto_id = %s", (producto_id,))
+            cur.execute("DELETE FROM lotes WHERE producto_id = %s", (producto_id,))
             cur.execute("DELETE FROM productos WHERE id = %s", (producto_id,))
             conn.commit()
             cur.close()
             conn.close()
         self._send_json({"ok": True})
+
+    def handle_get_lotes(self, query):
+        producto_id = query.get("producto_id", [None])[0]
+        if not producto_id:
+            return self._send_error_json("Falta producto_id")
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT * FROM lotes
+               WHERE producto_id = %s AND cantidad > 0
+               ORDER BY fecha_produccion ASC, id ASC""",
+            (producto_id,),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        hoy = datetime.date.today()
+        lotes = []
+        for r in rows:
+            d = row_to_dict(r)
+            dias_transcurridos = (hoy - d["fecha_produccion"]).days
+            d["dias_para_vencer"] = VIDA_UTIL_DIAS - dias_transcurridos
+            lotes.append(d)
+        self._send_json(lotes)
 
     def handle_get_movimientos(self, query):
         producto_id = query.get("producto_id", [None])[0]
@@ -255,6 +296,7 @@ class Handler(BaseHTTPRequestHandler):
         tipo = body.get("tipo")
         nota = (body.get("nota") or "").strip()
         fecha_produccion = (body.get("fecha_produccion") or "").strip()
+        lote_id = body.get("lote_id")
 
         if tipo not in ("produccion", "venta", "ajuste"):
             return self._send_error_json("Tipo de movimiento invalido")
@@ -264,10 +306,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_error_json("La fecha de producción es obligatoria")
         if tipo == "venta" and not nota:
             return self._send_error_json("Indicá cliente o motivo de la baja")
-        if tipo != "produccion":
-            fecha_produccion = None
-
-        delta = cantidad if tipo == "produccion" else -abs(cantidad) if tipo == "venta" else cantidad
+        if tipo == "venta" and not lote_id:
+            return self._send_error_json("Elegí de qué partida descontar")
 
         with db_lock:
             conn = get_conn()
@@ -279,7 +319,43 @@ class Handler(BaseHTTPRequestHandler):
                 conn.close()
                 return self._send_error_json("Producto no encontrado", 404)
 
-            nuevo_stock = producto["stock"] + delta
+            if tipo == "produccion":
+                cur.execute(
+                    "INSERT INTO lotes (producto_id, cantidad, fecha_produccion) VALUES (%s, %s, %s) RETURNING id",
+                    (producto_id, cantidad, fecha_produccion),
+                )
+                lote_id = cur.fetchone()["id"]
+                nuevo_stock = producto["stock"] + cantidad
+                delta_mov = cantidad
+
+            elif tipo == "venta":
+                cur.execute(
+                    "SELECT * FROM lotes WHERE id = %s AND producto_id = %s", (lote_id, producto_id)
+                )
+                lote = cur.fetchone()
+                if lote is None:
+                    cur.close()
+                    conn.close()
+                    return self._send_error_json("Partida no encontrada", 404)
+                if cantidad > lote["cantidad"]:
+                    cur.close()
+                    conn.close()
+                    return self._send_error_json(
+                        f"Esa partida solo tiene {lote['cantidad']} {producto['unidad']} disponibles"
+                    )
+                cur.execute(
+                    "UPDATE lotes SET cantidad = cantidad - %s WHERE id = %s", (cantidad, lote_id)
+                )
+                nuevo_stock = producto["stock"] - cantidad
+                delta_mov = -cantidad
+                fecha_produccion = None
+
+            else:  # ajuste
+                nuevo_stock = producto["stock"] + cantidad
+                delta_mov = cantidad
+                fecha_produccion = None
+                lote_id = None
+
             if nuevo_stock < 0:
                 cur.close()
                 conn.close()
@@ -291,8 +367,8 @@ class Handler(BaseHTTPRequestHandler):
                 "UPDATE productos SET stock = %s WHERE id = %s", (nuevo_stock, producto_id)
             )
             cur.execute(
-                "INSERT INTO movimientos (producto_id, tipo, cantidad, nota, fecha_produccion) VALUES (%s, %s, %s, %s, %s)",
-                (producto_id, tipo, delta, nota, fecha_produccion),
+                "INSERT INTO movimientos (producto_id, tipo, cantidad, nota, fecha_produccion, lote_id) VALUES (%s, %s, %s, %s, %s, %s)",
+                (producto_id, tipo, delta_mov, nota, fecha_produccion, lote_id),
             )
             cur.execute("SELECT * FROM productos WHERE id = %s", (producto_id,))
             row = cur.fetchone()
